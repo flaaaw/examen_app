@@ -76,8 +76,6 @@ class UserViewModel : ViewModel() {
                 val namePart = name.toRequestBody("text/plain".toMediaTypeOrNull())
                 val emailPart = email.toRequestBody("text/plain".toMediaTypeOrNull())
                 val phonePart = phone.toRequestBody("text/plain".toMediaTypeOrNull())
-                val passwordPart = "password123".toRequestBody("text/plain".toMediaTypeOrNull())
-                val passwordConfPart = "password123".toRequestBody("text/plain".toMediaTypeOrNull())
 
                 val imagePart = if (imageFile != null) {
                     val mimeType = when {
@@ -91,11 +89,9 @@ class UserViewModel : ViewModel() {
                     null
                 }
 
-                val response = RetrofitClient.apiService.registerUser(
+                val response = RetrofitClient.apiService.createUser(
                     name = namePart,
                     email = emailPart,
-                    password = passwordPart,
-                    passwordConfirmation = passwordConfPart,
                     phone = phonePart,
                     image = imagePart
                 )

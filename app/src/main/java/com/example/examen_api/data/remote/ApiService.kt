@@ -20,12 +20,10 @@ interface ApiService {
     suspend fun getUser(@Path("id") id: Int): Response<UserSingleResponseWrapper>
 
     @Multipart
-    @POST("api/register") // Cambiado a register para coincidir con AuthController
-    suspend fun registerUser(
+    @POST("api/users")
+    suspend fun createUser(
         @Part("name") name: RequestBody,
         @Part("email") email: RequestBody,
-        @Part("password") password: RequestBody,
-        @Part("password_confirmation") passwordConfirmation: RequestBody,
         @Part("phone") phone: RequestBody,
         @Part image: MultipartBody.Part?
     ): Response<UserSingleResponseWrapper>

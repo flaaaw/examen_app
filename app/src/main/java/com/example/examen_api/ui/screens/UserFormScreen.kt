@@ -238,7 +238,7 @@ fun UserFormScreen(
                     OutlinedTextField(
                         value = name,
                         onValueChange = { newName ->
-                            if (newName.length <= 20 && newName.none { it.isDigit() }) {
+                            if (newName.length <= 50 && newName.none { it.isDigit() }) {
                                 name = newName
                             }
                         },
