@@ -38,13 +38,17 @@ import androidx.compose.ui.unit.sp
 import com.example.examen_api.ui.viewmodel.UserViewModel
 import java.io.File
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Composable
 fun UserFormScreen(
     userId: Int? = null,
     viewModel: UserViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onUserCreated: (Int) -> Unit = {}, // New callback with default
+    sharedTransitionScope: androidx.compose.animation.SharedTransitionScope,
+    animatedVisibilityScope: androidx.compose.animation.AnimatedVisibilityScope
 ) {
+    // ... (state code remains same) ...
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
@@ -93,9 +97,9 @@ fun UserFormScreen(
                     if (imageUri != null && file == null) {
                         Toast.makeText(context, "Error procesando la imagen", Toast.LENGTH_SHORT).show()
                     } else {
-                        viewModel.createUser(name, email, phone, file) { 
+                        viewModel.createUser(name, email, phone, file) { newUserId ->
                             Toast.makeText(context, "Contacto guardado", Toast.LENGTH_SHORT).show()
-                            onBack() 
+                            onUserCreated(newUserId)
                         }
                     }
                 } else {
@@ -121,167 +125,187 @@ fun UserFormScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { 
-                    Text(
-                        if (userId == null) "New Contact" else "Edit Contact",
-                        fontWeight = FontWeight.Bold
-                    ) 
-                },
-                navigationIcon = {
-                    TextButton(onClick = onBack) {
-                        Text("Cancel", fontSize = 17.sp, color = MaterialTheme.colorScheme.primary)
-                    }
-                },
-                actions = {
-                    TextButton(onClick = saveAction) {
-                        Text("Save", fontSize = 17.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // 2. Fotografía del contacto
-            Box(
-                modifier = Modifier
-                    .size(150.dp)
-                    .clip(CircleShape)
-                    .background(Color.LightGray.copy(alpha = 0.3f))
-                    .clickable { launcher.launch("image/*") },
-                contentAlignment = Alignment.Center
-            ) {
-                 if (imageUri != null) {
-                    val bitmap = remember(imageUri) {
-                        try {
-                            context.contentResolver.openInputStream(imageUri!!)?.use {
-                                BitmapFactory.decodeStream(it)
-                            }?.asImageBitmap()
-                        } catch (e: Exception) {
-                            null
+    with(sharedTransitionScope) {
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = { 
+                        Text(
+                            if (userId == null) "New Contact" else "Edit Contact",
+                            fontWeight = FontWeight.Bold
+                        ) 
+                    },
+                    navigationIcon = {
+                        TextButton(onClick = onBack) {
+                            Text("Cancel", fontSize = 17.sp, color = MaterialTheme.colorScheme.primary)
                         }
-                    }
-                    if (bitmap != null) {
-                        Image(
-                            bitmap = bitmap,
-                            contentDescription = "Foto",
+                    },
+                    actions = {
+                        TextButton(onClick = saveAction) {
+                            Text("Save", fontSize = 17.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background
+                    )
+                )
+            },
+            containerColor = MaterialTheme.colorScheme.background,
+            modifier = if (userId == null) {
+                Modifier.sharedBounds(
+                    rememberSharedContentState(key = "fab-create"),
+                    animatedVisibilityScope = animatedVisibilityScope
+                )
+            } else {
+                Modifier
+            }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(24.dp))
+    
+                // 2. Fotografía del contacto
+                Box(
+                    modifier = Modifier
+                        .size(150.dp)
+                        .clip(CircleShape)
+                        .background(Color.LightGray.copy(alpha = 0.3f))
+                        .clickable { launcher.launch("image/*") }
+                        .let { modifier ->
+                            if (userId != null) {
+                                modifier.sharedElement(
+                                    rememberSharedContentState(key = "image-$userId"),
+                                    animatedVisibilityScope = animatedVisibilityScope
+                                )
+                            } else {
+                                modifier
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                     if (imageUri != null) {
+                        val bitmap = remember(imageUri) {
+                            try {
+                                context.contentResolver.openInputStream(imageUri!!)?.use {
+                                    BitmapFactory.decodeStream(it)
+                                }?.asImageBitmap()
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        if (bitmap != null) {
+                            Image(
+                                bitmap = bitmap,
+                                contentDescription = "Foto",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                     } else if (userId != null && viewModel.currentUser?.image != null) {
+                          coil.compose.AsyncImage(
+                            model = viewModel.currentUser!!.image,
+                            contentDescription = "Foto actual",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
-                    }
-                 } else if (userId != null && viewModel.currentUser?.image != null) {
-                      coil.compose.AsyncImage(
-                        model = viewModel.currentUser!!.image,
-                        contentDescription = "Foto actual",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
+                     } else {
+                         Icon(
+                            painter = painterResource(id = android.R.drawable.ic_menu_camera), 
+                            contentDescription = "Add Photo", 
+                            modifier = Modifier.size(50.dp),
+                            tint = Color(0xFF2962FF) // Azul para el icono también
+                        )
+                     }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Add Photo", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+    
+                Spacer(modifier = Modifier.height(32.dp))
+    
+                // 3. Campos del formulario
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // a) Full Name
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { newName ->
+                            if (newName.length <= 20 && newName.none { it.isDigit() }) {
+                                name = newName
+                            }
+                        },
+                        label = { Text("Full Name") },
+                        placeholder = { Text("John Doe") },
+                        leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        singleLine = true
                     )
-                 } else {
-                     Icon(
-                        painter = painterResource(id = android.R.drawable.ic_menu_camera), 
-                        contentDescription = "Add Photo", 
-                        modifier = Modifier.size(50.dp),
-                        tint = Color(0xFF2962FF) // Azul para el icono también
+    
+                    // b) Phone Number
+                    OutlinedTextField(
+                        value = phone,
+                        onValueChange = { if (it.length <= 10 && it.all { char -> char.isDigit() }) phone = it },
+                        label = { Text("Phone Number") },
+                        placeholder = { Text("(555) 123-4567") },
+                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
+                        singleLine = true
                     )
-                 }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Add Photo", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // 3. Campos del formulario
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // a) Full Name
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { newName ->
-                        if (newName.length <= 20 && newName.none { it.isDigit() }) {
-                            name = newName
-                        }
-                    },
-                    label = { Text("Full Name") },
-                    placeholder = { Text("John Doe") },
-                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                    singleLine = true
-                )
-
-                // b) Phone Number
-                OutlinedTextField(
-                    value = phone,
-                    onValueChange = { if (it.length <= 10 && it.all { char -> char.isDigit() }) phone = it },
-                    label = { Text("Phone Number") },
-                    placeholder = { Text("(555) 123-4567") },
-                    leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
-                    singleLine = true
-                )
-
-                // c) Email Address
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = { if (it.length <= 60) email = it },
-                    label = { Text("Email Address") },
-                    placeholder = { Text("john.doe@example.com") },
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
-                    singleLine = true
-                )
-            }
-
-            Spacer(modifier = Modifier.height(40.dp))
-
-            // 4. Botón Guardar (parte inferior)
-            Button(
-                onClick = saveAction,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .height(50.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF2962FF) // Azul principal solicitado
-                )
-            ) {
-                if (viewModel.isLoading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
-                } else {
-                    Text(
-                        "Save Contact",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimary
+    
+                    // c) Email Address
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { if (it.length <= 60) email = it },
+                        label = { Text("Email Address") },
+                        placeholder = { Text("john.doe@example.com") },
+                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Done),
+                        singleLine = true
                     )
                 }
+    
+                Spacer(modifier = Modifier.height(40.dp))
+    
+                // 4. Botón Guardar (parte inferior)
+                Button(
+                    onClick = saveAction,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .height(50.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF2962FF) // Azul principal solicitado
+                    )
+                ) {
+                    if (viewModel.isLoading) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                    } else {
+                        Text(
+                            "Save Contact",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
             }
-            
-            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

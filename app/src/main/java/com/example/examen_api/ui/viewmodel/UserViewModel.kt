@@ -68,10 +68,11 @@ class UserViewModel : ViewModel() {
     }
 
     @Suppress("DEPRECATION")
-    fun createUser(name: String, email: String, phone: String, imageFile: File?, onSuccess: () -> Unit) {
+    fun createUser(name: String, email: String, phone: String, imageFile: File?, onSuccess: (Int) -> Unit) {
         viewModelScope.launch {
             isLoading = true
             try {
+                // ... parts setup ...
                 val namePart = name.toRequestBody("text/plain".toMediaTypeOrNull())
                 val emailPart = email.toRequestBody("text/plain".toMediaTypeOrNull())
                 val phonePart = phone.toRequestBody("text/plain".toMediaTypeOrNull())
@@ -100,7 +101,12 @@ class UserViewModel : ViewModel() {
                 )
                 if (response.isSuccessful) {
                     fetchUsers()
-                    onSuccess()
+                    val newUser = response.body()?.data
+                    if (newUser != null) {
+                        onSuccess(newUser.id)
+                    } else {
+                        errorMessage = "Error: Respuesta vacía"
+                    }
                 } else {
                     val errorBody = response.errorBody()?.string() ?: ""
                     val message = try {

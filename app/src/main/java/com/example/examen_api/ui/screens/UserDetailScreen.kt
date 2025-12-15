@@ -12,12 +12,13 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -27,13 +28,15 @@ import androidx.compose.ui.unit.sp
 import com.example.examen_api.ui.components.UserAvatar
 import com.example.examen_api.ui.viewmodel.UserViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Composable
 fun UserDetailScreen(
     userId: Int,
     viewModel: UserViewModel,
     onBack: () -> Unit,
-    onEdit: (Int) -> Unit
+    onEdit: (Int) -> Unit,
+    sharedTransitionScope: androidx.compose.animation.SharedTransitionScope,
+    animatedVisibilityScope: androidx.compose.animation.AnimatedVisibilityScope
 ) {
     LaunchedEffect(userId) {
         viewModel.getUser(userId)
@@ -99,85 +102,101 @@ fun UserDetailScreen(
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else {
                 viewModel.currentUser?.let { user ->
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Spacer(modifier = Modifier.height(20.dp))
-                        
-                        // 2. Fotografía del contacto
-                        UserAvatar(name = user.name, image = user.image, size = 120.dp, fontSize = 48)
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // 3. Información principal (Nombre)
-                        Text(
-                            text = user.name,
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        // 4. Acciones rápidas
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            ActionButton(icon = Icons.Default.Email, label = "Mensaje") {
-                                Toast.makeText(context, "Mensaje", Toast.LENGTH_SHORT).show()
-                            }
-                            ActionButton(icon = Icons.Default.Phone, label = "Llamar") {
-                                Toast.makeText(context, "Llamar", Toast.LENGTH_SHORT).show()
-                            }
-                            ActionButton(icon = Icons.Default.Star, label = "Video") {
-                                Toast.makeText(context, "Video", Toast.LENGTH_SHORT).show()
-                            }
-                            ActionButton(icon = Icons.Default.Email, label = "Correo") {
-                                Toast.makeText(context, "Correo", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(32.dp))
-
-                        // 5. Información de contacto
-                        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                            ContactInfoCard(
-                                label = "móvil",
-                                value = user.phone ?: "No disponible"
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            ContactInfoCard(
-                                label = "correo electrónico",
-                                value = user.email
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(40.dp))
-
-                        // 6. Acción de eliminar
-                        Button(
-                            onClick = { showDeleteDialog = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha=0.3f)),
+                    with(sharedTransitionScope) {
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .height(56.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            elevation = ButtonDefaults.buttonElevation(0.dp)
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .padding(bottom = 32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            
+                            // 1. Header with Avatar and Name
+                            Box(
+                                modifier = Modifier.sharedElement(
+                                    rememberSharedContentState(key = "image-${user.id}"),
+                                    animatedVisibilityScope = animatedVisibilityScope
+                                )
+                            ) {
+                                UserAvatar(name = user.name, image = user.image, size = 100.dp, fontSize = 40)
+                            }
+    
+                            Spacer(modifier = Modifier.height(16.dp))
+    
                             Text(
-                                "Eliminar Contacto",
-                                color = Color.Red,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Normal
+                                text = user.name,
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                modifier = Modifier.sharedElement(
+                                    rememberSharedContentState(key = "name-${user.id}"),
+                                    animatedVisibilityScope = animatedVisibilityScope
+                                )
                             )
+    
+                            // 2. Action Buttons Row (iOS Style)
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                ActionButton(icon = Icons.Default.Send, label = "Mensaje") {
+                                    Toast.makeText(context, "Mensaje", Toast.LENGTH_SHORT).show()
+                                }
+                                ActionButton(icon = Icons.Default.Phone, label = "Llamar") {
+                                    Toast.makeText(context, "Llamar", Toast.LENGTH_SHORT).show()
+                                }
+                                ActionButton(icon = Icons.Default.PlayArrow, label = "Video") {
+                                    Toast.makeText(context, "Video", Toast.LENGTH_SHORT).show()
+                                }
+                                ActionButton(icon = Icons.Default.Email, label = "Correo") {
+                                    Toast.makeText(context, "Correo", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+    
+                            // 3. Information Cards
+                            Spacer(modifier = Modifier.height(32.dp))
+                            
+                            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                InfoGroupCard {
+                                    ContactInfoRow(
+                                        label = "móvil",
+                                        value = user.phone ?: "No disponible",
+                                        isLast = false,
+                                        actionIcon = Icons.Default.Send
+                                    )
+                                    ContactInfoRow(
+                                        label = "correo electrónico",
+                                        value = user.email,
+                                        isLast = true,
+                                        actionIcon = Icons.Default.Email
+                                    )
+                                }
+                            }
+    
+                            // 4. Delete Action
+                            Spacer(modifier = Modifier.height(40.dp))
+                            
+                            Surface(
+                                onClick = { showDeleteDialog = true },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .height(50.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                            ) {
+                                Box(contentAlignment = Alignment.CenterStart) {
+                                    Text(
+                                        "Eliminar Contacto",
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontSize = 17.sp,
+                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                    )
+                                }
+                            }
                         }
-
-                        Spacer(modifier = Modifier.height(40.dp))
                     }
                 }
             }
@@ -191,39 +210,58 @@ fun ActionButton(icon: ImageVector, label: String, onClick: () -> Unit) {
         Surface(
             onClick = onClick,
             shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            color = MaterialTheme.colorScheme.primaryContainer, 
             modifier = Modifier.size(56.dp)
         ) {
              Box(contentAlignment = Alignment.Center) {
-                 Icon(icon, contentDescription = label, tint = Color(0xFF2962FF)) // Blue icon
+                 Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.primary)
              }
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = Color(0xFF2962FF))
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
     }
 }
 
 @Composable
-fun ContactInfoCard(label: String, value: String) {
-    Card(
+fun InfoGroupCard(content: @Composable () -> Unit) {
+    Surface(
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)), // Lighter gray
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(0.dp)
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), // Light gray background
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
+            content()
+        }
+    }
+}
+
+@Composable
+fun ContactInfoRow(label: String, value: String, isLast: Boolean, actionIcon: ImageVector? = null) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color(0xFF2962FF) // Blue value
+                color = MaterialTheme.colorScheme.primary
             )
         }
+    }
+    if (!isLast) {
+        Divider(
+            modifier = Modifier.padding(start = 16.dp),
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+            thickness = 0.5.dp
+        )
     }
 }

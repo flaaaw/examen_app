@@ -15,5 +15,9 @@ data class UserRequest(
     val password: String? = null
 )
 
-data class UserResponseWrapper(val data: List<User>)
+data class UserResponseWrapper(
+    val data: List<User>,
+    val links: Map<String, String?>? = null,
+    val meta: Map<String, Any>? = null
+)
 data class UserSingleResponseWrapper(val data: User)

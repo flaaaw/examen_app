@@ -37,45 +37,61 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
                     val navController = rememberNavController()
                     val viewModel: UserViewModel = viewModel()
 
-                    NavHost(navController = navController, startDestination = "index") {
-                        composable("index") {
-                            UserListScreen(
-                                viewModel = viewModel,
-                                onUserClick = { userId -> navController.navigate("show/$userId") },
-                                onFabClick = { navController.navigate("create") }
-                            )
-                        }
+                    @OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
+                    androidx.compose.animation.SharedTransitionLayout {
+                        NavHost(navController = navController, startDestination = "index") {
+                            composable("index") {
+                                UserListScreen(
+                                    viewModel = viewModel,
+                                    onUserClick = { userId -> navController.navigate("show/$userId") },
+                                    onFabClick = { navController.navigate("create") },
+                                    sharedTransitionScope = this@SharedTransitionLayout,
+                                    animatedVisibilityScope = this@composable
+                                )
+                            }
                         
-                        composable(
-                            route = "show/{userId}",
-                            arguments = listOf(navArgument("userId") { type = NavType.IntType })
-                        ) { backStackEntry ->
-                            val userId = backStackEntry.arguments?.getInt("userId") ?: return@composable
-                            UserDetailScreen(
-                                userId = userId,
-                                viewModel = viewModel,
-                                onBack = { navController.popBackStack() },
-                                onEdit = { id -> navController.navigate("edit/$id") }
-                            )
-                        }
+                            composable(
+                                route = "show/{userId}",
+                                arguments = listOf(navArgument("userId") { type = NavType.IntType })
+                            ) { backStackEntry ->
+                                val userId = backStackEntry.arguments?.getInt("userId") ?: return@composable
+                                UserDetailScreen(
+                                    userId = userId,
+                                    viewModel = viewModel,
+                                    onBack = { navController.popBackStack() },
+                                    onEdit = { id -> navController.navigate("edit/$id") },
+                                    sharedTransitionScope = this@SharedTransitionLayout,
+                                    animatedVisibilityScope = this@composable
+                                )
+                            }
                         
-                        composable("create") {
-                            UserFormScreen(
-                                viewModel = viewModel,
-                                onBack = { navController.popBackStack() }
-                            )
-                        }
+                            composable("create") {
+                                UserFormScreen(
+                                    viewModel = viewModel,
+                                    onBack = { navController.popBackStack() },
+                                    onUserCreated = { id -> 
+                                        navController.navigate("show/$id") {
+                                            popUpTo("index") // Back to list, then push detail
+                                        }
+                                    },
+                                    sharedTransitionScope = this@SharedTransitionLayout,
+                                    animatedVisibilityScope = this@composable
+                                )
+                            }
                         
-                        composable(
-                            route = "edit/{userId}",
-                            arguments = listOf(navArgument("userId") { type = NavType.IntType })
-                        ) { backStackEntry ->
-                            val userId = backStackEntry.arguments?.getInt("userId") ?: return@composable
-                            UserFormScreen(
-                                userId = userId,
-                                viewModel = viewModel,
-                                onBack = { navController.popBackStack() }
-                            )
+                            composable(
+                                route = "edit/{userId}",
+                                arguments = listOf(navArgument("userId") { type = NavType.IntType })
+                            ) { backStackEntry ->
+                                val userId = backStackEntry.arguments?.getInt("userId") ?: return@composable
+                                UserFormScreen(
+                                    userId = userId,
+                                    viewModel = viewModel,
+                                    onBack = { navController.popBackStack() },
+                                    sharedTransitionScope = this@SharedTransitionLayout,
+                                    animatedVisibilityScope = this@composable
+                                )
+                            }
                         }
                     }
                 }
